@@ -1,0 +1,10 @@
+name: Material_Storage
+version: 1.0.0
+main: ms.plugin.MStoragePlugin
+api-version: '1.21'
+author: kazux
+description: Single item compressed material storage (Core)
+
+load: POSTWORLD
+
+permissions: {}
