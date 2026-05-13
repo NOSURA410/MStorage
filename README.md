@@ -1,131 +1,196 @@
-# MStorage
+# MaterialStorage (MS)
 
-Advanced material compression storage plugin for Paper / Purpur servers.
+Minecraft Paper/Purpur 用の高機能ストレージプラグインです。
+大量アイテムを1スロットへ圧縮保存し、ホッパー・自動回収・コンテナ連携にも対応しています。
 
----
+対応バージョン:
 
-# Supported Versions
-
-* Paper 1.21.11
-* Purpur 1.21.11
-* Paper 1.26.12
-* Purpur 1.26.12
-
----
-
-# Requirements
-
+* Minecraft 1.21.11 ～ 1.26.12
+* Paper / Purpur
 * Java 21+
-* Paper or Purpur server
 
 ---
 
-# Features
+# 主な機能
 
-* Single material compression storage
-* Exact ItemStack matching
-* Auto collect system
-* HAND mode
-* CONTAINER mode
-* Grindstone de-storage
-* PDC-based safe storage system
-* Rollback-safe transaction handling
-* TPS protection system
-* Storage item protection
-* Container bulk storage support
-* Real-time lore and display updates
+## 1. アイテム圧縮ストレージ
+
+1種類のアイテムを超大量に保存可能。
+
+* 最大 20T 保存
+* 完全一致管理
+* PDC/NBT による安全保存
+* 元アイテムを完全復元
 
 ---
 
-# Storage Rules
+## 2. 自動回収
 
-* Only one exact item type can be stored per storage item
-* Storage items cannot store other storage items
-* Exact matching uses:
+周囲のドロップアイテムを自動回収。
 
-  * Material
-  * ItemMeta
-  * PDC
-* Damage value is ignored
+### 特徴
 
----
-
-# Auto Collect
-
-* Automatically collects nearby matching items
-* Collection radius: 4 blocks
-* Toggle ON/OFF supported
-* TPS-safe throttled processing
-* Storage items are excluded
+* 4ブロック範囲回収
+* TPS保護
+* Tick分散処理
+* ラウンドロビン処理
+* 回収音クールタイム
+* ストレージアイテム除外
 
 ---
 
-# Modes
+## 3. HAND / CONTAINER モード
 
-## HAND Mode
+### HANDモード
 
-Interact directly while holding the storage item.
+手持ち状態で直接出し入れ。
 
-## CONTAINER Mode
+### CONTAINERモード
 
-Store matching items into containers automatically.
-
----
-
-# De-Storage
-
-Use a grindstone to safely remove storage status and restore the original item.
+チェスト等のコンテナと連携。
 
 ---
 
-# Commands
+## 4. ホッパー搬送対応（NEW）
 
-| Command          | Description          |
-| ---------------- | -------------------- |
-| /mstorage reload | Reload configuration |
+ストレージボックス内部アイテムをホッパー経由で搬送可能。
 
----
+### 対応内容
 
-# Permissions
-
-| Permission      | Description                 | Default |
-| --------------- | --------------------------- | ------- |
-| mstorage.admin  | Administrative access       | OP      |
-| mstorage.reload | Reload plugin configuration | OP      |
+* ホッパーから64個単位で搬出
+* ホッパーからストレージへ自動収納
+* 通常アイテムと同じ感覚で搬送可能
+* ホッパーチェーン対応
+* フィルター用途対応
 
 ---
 
-# Safety Features
+## 5. 同種ストレージへの自動収納（NEW）
 
-* Overflow rollback protection
-* Invalid item validation
-* Container safety checks
-* Inventory conflict prevention
-* Item duplication prevention
-* Auto collect safety filtering
-* Owner pickup protection
-* TPS-aware throttling
+搬送先コンテナ内に同種ストレージが存在する場合:
 
----
+```text id="8o2v4q"
+チェストA
+↓
+ホッパー
+↓
+チェストB（同種ストレージあり）
+```
 
-# Notes
-
-* Designed for Paper/Purpur servers only
-* Unsupported inventory modification plugins may cause conflicts
-* Always test on a backup server before production use
+自動的にストレージ内部へ収納されます。
 
 ---
 
-# Development Environment
+## 6. ホッパーフィルター安定化（NEW）
 
-* Java 21
-* Maven
-* IntelliJ IDEA
-* Paper API
+複数ホッパー搬送時でも回収漏れが発生しにくいよう改善。
+
+### 改善内容
+
+* ホッパー搬送速度との同期改善
+* 自動回収優先度調整
+* 搬送競合対策
+* Tick同期最適化
+
+---
+
+# ストレージ作成方法
+
+## 作成
+
+```text id="x0aqe2"
+チェスト8個で対象アイテムを囲む
+```
+
+---
+
+## 解除
+
+```text id="xkjx76"
+砥石へ投入
+```
+
+---
+
+# 操作方法
+
+## 自動回収 ON/OFF
+
+```text id="6c1u2x"
+スニーク左クリック
+```
+
+---
+
+## モード切替
+
+```text id="1mn4jp"
+スニーク右クリック
+```
+
+---
+
+# 安全設計
+
+## 使用禁止対策
+
+以下ではストレージアイテム利用を制限:
+
+* クラフト
+* 取引
+* 精錬
+* 不正搬送
+* 想定外インベントリ操作
+
+---
+
+## 整合性保護
+
+* Overflow rollback
+* 完全一致判定
+* PDC検証
+* データバージョン管理
+* 安全復旧機能
+
+---
+
+# TPS最適化
+
+## 負荷対策
+
+* Tick分散
+* Queue処理
+* 条件付き更新
+* Entityスキャン制限
+* TPS低下時自動抑制
+
+---
+
+# インストール
+
+1. Releasesからjarをダウンロード
+2. plugins フォルダへ配置
+3. サーバー起動
+
+---
+
+# 推奨環境
+
+* Purpur
+* Java 21+
+* SSD環境
+* 十分なRAM割当
+
+---
+
+# 注意事項
+
+* 他ストレージ系プラグインとの併用は一部非推奨
+* データ直接編集禁止
+* ワールドバックアップ推奨
 
 ---
 
 # License
 
-Private development repository.
-All rights reserved.
+Private / All Rights Reserved
