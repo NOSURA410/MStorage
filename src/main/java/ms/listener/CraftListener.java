@@ -119,7 +119,7 @@ public class CraftListener implements Listener {
 
             ItemStack item = matrix[i];
 
-            if (item == null || item.getType() != Material.CHEST) {
+            if (item == null || item.getType() != Material.BARREL) {
                 return false;
             }
 

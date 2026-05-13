@@ -2,11 +2,12 @@ package ms.plugin;
 
 import ms.addonimpl.autocollect.AutoCollectAddon;
 import ms.addonimpl.container.ContainerAddon;
+import ms.addonimpl.hopper.HopperAddon;
 import ms.core.StorageLore;
 import ms.core.StorageNBT;
 import ms.core.StorageValidator;
 import ms.listener.AmmoProtectionListener;
-import ms.listener.ChestGuideLoreListener;
+import ms.listener.BarrelGuideLoreListener;
 import ms.listener.CoreActionListener;
 import ms.listener.CoreProtectionListener;
 import ms.listener.CraftListener;
@@ -19,6 +20,7 @@ public class MStoragePlugin extends JavaPlugin {
 
     private AutoCollectAddon autoCollectAddon;
     private ContainerAddon containerAddon;
+    private HopperAddon hopperAddon;
 
     @Override
     public void onEnable() {
@@ -30,27 +32,33 @@ public class MStoragePlugin extends JavaPlugin {
         FeedbackManager feedback = new FeedbackManager();
 
         getServer().getPluginManager().registerEvents(
-                new CoreActionListener(nbt, service, feedback), this
+                new CoreActionListener(nbt, service, feedback),
+                this
         );
 
         getServer().getPluginManager().registerEvents(
-                new CoreProtectionListener(this, nbt), this
+                new CoreProtectionListener(this, nbt),
+                this
         );
 
         getServer().getPluginManager().registerEvents(
-                new CraftListener(nbt, lore, validator), this
+                new CraftListener(nbt, lore, validator),
+                this
         );
 
         getServer().getPluginManager().registerEvents(
-                new ChestGuideLoreListener(nbt), this
+                new BarrelGuideLoreListener(nbt),
+                this
         );
 
         getServer().getPluginManager().registerEvents(
-                new StorageReleaseListener(nbt, feedback), this
+                new StorageReleaseListener(nbt, feedback),
+                this
         );
 
         getServer().getPluginManager().registerEvents(
-                new AmmoProtectionListener(nbt), this
+                new AmmoProtectionListener(nbt),
+                this
         );
 
         autoCollectAddon = new AutoCollectAddon(
@@ -70,10 +78,21 @@ public class MStoragePlugin extends JavaPlugin {
                 feedback
         );
         containerAddon.enable();
+
+        hopperAddon = new HopperAddon(
+                this,
+                nbt,
+                lore,
+                validator
+        );
+        hopperAddon.enable();
+
+        getLogger().info("MStorage enabled.");
     }
 
     @Override
     public void onDisable() {
+
         if (autoCollectAddon != null) {
             autoCollectAddon.disable();
             autoCollectAddon = null;
@@ -83,5 +102,12 @@ public class MStoragePlugin extends JavaPlugin {
             containerAddon.disable();
             containerAddon = null;
         }
+
+        if (hopperAddon != null) {
+            hopperAddon.disable();
+            hopperAddon = null;
+        }
+
+        getLogger().info("MStorage disabled.");
     }
 }

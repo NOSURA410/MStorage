@@ -9,19 +9,40 @@ public class StorageData {
     private final ItemStack storedItem;
     private final long amount;
     private final StorageMode mode;
+    private final boolean autoCollect;
     private final UUID owner;
     private final int version;
 
-    public StorageData(ItemStack storedItem, long amount, StorageMode mode, UUID owner, int version) {
+    // 旧コード互換用
+    public StorageData(
+            ItemStack storedItem,
+            long amount,
+            StorageMode mode,
+            UUID owner,
+            int version
+    ) {
+        this(storedItem, amount, mode, false, owner, version);
+    }
+
+    // 新仕様用
+    public StorageData(
+            ItemStack storedItem,
+            long amount,
+            StorageMode mode,
+            boolean autoCollect,
+            UUID owner,
+            int version
+    ) {
         this.storedItem = storedItem;
         this.amount = amount;
         this.mode = mode;
+        this.autoCollect = autoCollect;
         this.owner = owner;
         this.version = version;
     }
 
     public ItemStack getStoredItem() {
-        return storedItem == null ? null : storedItem.clone();
+        return storedItem;
     }
 
     public long getAmount() {
@@ -32,6 +53,10 @@ public class StorageData {
         return mode;
     }
 
+    public boolean isAutoCollect() {
+        return autoCollect;
+    }
+
     public UUID getOwner() {
         return owner;
     }
@@ -40,11 +65,27 @@ public class StorageData {
         return version;
     }
 
-    public StorageData withAmount(long newAmount) {
-        return new StorageData(storedItem, newAmount, mode, owner, version);
+    public StorageData withAmount(long amount) {
+        return new StorageData(storedItem, amount, mode, autoCollect, owner, version);
     }
 
-    public StorageData withMode(StorageMode newMode) {
-        return new StorageData(storedItem, amount, newMode, owner, version);
+    public StorageData withMode(StorageMode mode) {
+        return new StorageData(storedItem, amount, mode, autoCollect, owner, version);
+    }
+
+    public StorageData withAutoCollect(boolean autoCollect) {
+        return new StorageData(storedItem, amount, mode, autoCollect, owner, version);
+    }
+
+    public StorageData withStoredItem(ItemStack storedItem) {
+        return new StorageData(storedItem, amount, mode, autoCollect, owner, version);
+    }
+
+    public StorageData withOwner(UUID owner) {
+        return new StorageData(storedItem, amount, mode, autoCollect, owner, version);
+    }
+
+    public StorageData withVersion(int version) {
+        return new StorageData(storedItem, amount, mode, autoCollect, owner, version);
     }
 }

@@ -13,13 +13,13 @@ import org.bukkit.inventory.meta.ItemMeta;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ChestGuideLoreListener implements Listener {
+public class BarrelGuideLoreListener implements Listener {
 
     private static final String MARKER = ChatColor.DARK_GRAY + "[MS_STORAGE_GUIDE]";
 
     private final StorageNBT nbt;
 
-    public ChestGuideLoreListener(StorageNBT nbt) {
+    public BarrelGuideLoreListener(StorageNBT nbt) {
         this.nbt = nbt;
     }
 
@@ -36,18 +36,15 @@ public class ChestGuideLoreListener implements Listener {
     }
 
     private void apply(ItemStack item) {
-
-        if (item == null || item.getType() != Material.CHEST) {
+        if (item == null || item.getType() != Material.BARREL) {
             return;
         }
 
-        // ストレージ化済みチェストは除外
         if (nbt.isStorage(item)) {
             return;
         }
 
         ItemMeta meta = item.getItemMeta();
-
         if (meta == null) {
             return;
         }
@@ -69,13 +66,13 @@ public class ChestGuideLoreListener implements Listener {
         lore.add("");
         lore.add(MARKER);
         lore.add(ChatColor.AQUA + "MSストレージ化方法");
-        lore.add(ChatColor.GRAY + "チェスト8個で中央アイテムを囲む");
+        lore.add(ChatColor.GRAY + "樽8個で中央アイテムを囲む");
         lore.add(ChatColor.GRAY + "ことでストレージ化できます");
         lore.add("");
         lore.add(ChatColor.YELLOW + "配置:");
-        lore.add(ChatColor.WHITE + "チェスト チェスト チェスト");
-        lore.add(ChatColor.WHITE + "チェスト アイテム チェスト");
-        lore.add(ChatColor.WHITE + "チェスト チェスト チェスト");
+        lore.add(ChatColor.WHITE + "樽 樽 樽");
+        lore.add(ChatColor.WHITE + "樽 アイテム 樽");
+        lore.add(ChatColor.WHITE + "樽 樽 樽");
 
         meta.setLore(lore);
         item.setItemMeta(meta);

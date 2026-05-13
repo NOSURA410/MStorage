@@ -6,14 +6,36 @@ import org.bukkit.entity.Player;
 public class FeedbackManager {
 
     public void success(Player player) {
-        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1f, 1.2f);
+        if (player == null) {
+            return;
+        }
+
+        player.playSound(
+                player.getLocation(),
+                Sound.UI_BUTTON_CLICK,
+                0.2f,
+                1.6f
+        );
     }
 
     public void fail(Player player) {
-        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+        if (player == null) {
+            return;
+        }
+
+        player.playSound(
+                player.getLocation(),
+                Sound.BLOCK_NOTE_BLOCK_BASS,
+                0.2f,
+                0.7f
+        );
     }
 
     public void actionBar(Player player, String message) {
+        if (player == null || message == null) {
+            return;
+        }
+
         player.sendActionBar(message);
     }
 }

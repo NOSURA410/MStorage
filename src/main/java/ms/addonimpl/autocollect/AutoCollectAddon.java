@@ -32,13 +32,11 @@ public class AutoCollectAddon {
 
     public void enable() {
 
-        // ===== Lore拡張 =====
         AutoCollectLore autoCollectLore = new AutoCollectLore(plugin, nbt);
+        lore.setAutoCollectLore(autoCollectLore);
 
-        // ===== Selector =====
         AutoCollectSelector selector = new AutoCollectSelector(plugin, nbt, validator);
 
-        // ===== Processor（定期処理）=====
         AutoCollectProcessor processor = new AutoCollectProcessor(
                 nbt,
                 lore,
@@ -49,13 +47,11 @@ public class AutoCollectAddon {
 
         this.task = new AutoCollectTask(processor);
 
-        // ===== Toggle =====
         plugin.getServer().getPluginManager().registerEvents(
                 new AutoCollectToggleListener(plugin, nbt, lore, feedback, autoCollectLore),
                 plugin
         );
 
-        // ===== 即時回収（バニラより先に処理）=====
         plugin.getServer().getPluginManager().registerEvents(
                 new AutoCollectPickupListener(
                         nbt,
@@ -67,7 +63,6 @@ public class AutoCollectAddon {
                 plugin
         );
 
-        // ===== 定期回収開始 =====
         task.start();
 
         plugin.getLogger().info("[MS-Addon] AutoCollectAddon enabled.");
