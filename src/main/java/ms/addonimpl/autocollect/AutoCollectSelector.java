@@ -3,9 +3,11 @@ package ms.addonimpl.autocollect;
 import ms.core.StorageNBT;
 import ms.core.StorageValidator;
 import ms.model.StorageData;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -15,70 +17,89 @@ public class AutoCollectSelector {
     private final StorageValidator validator;
     private final NamespacedKey autoKey;
 
-    public AutoCollectSelector(JavaPlugin plugin, StorageNBT nbt, StorageValidator validator) {
+    public AutoCollectSelector(
+            JavaPlugin plugin,
+            StorageNBT nbt,
+            StorageValidator validator
+    ) {
         this.nbt = nbt;
         this.validator = validator;
-        this.autoKey = new NamespacedKey(plugin, AutoCollectSettings.KEY_AUTO);
+        this.autoKey = new NamespacedKey(
+                plugin,
+                AutoCollectSettings.KEY_AUTO
+        );
     }
 
-    public ItemStack findStorage(PlayerInventory inventory, ItemStack droppedItem) {
+    public ItemStack findStorage(
+            Inventory inventory,
+            ItemStack droppedItem
+    ) {
+
         if (inventory == null || droppedItem == null) {
             return null;
         }
 
-        ItemStack storage;
-
-        // 1. ホットバー優先
-        for (int slot = 0; slot <= 8; slot++) {
-            storage = inventory.getItem(slot);
-            if (matches(storage, droppedItem)) {
-                return storage;
-            }
+        if (droppedItem.getType() == Material.AIR) {
+            return null;
         }
 
-        // 2. メインインベントリ
-        for (int slot = 9; slot <= 35; slot++) {
-            storage = inventory.getItem(slot);
-            if (matches(storage, droppedItem)) {
-                return storage;
-            }
+        // MSストレージ本体は回収対象外
+        if (nbt.isStorage(droppedItem)) {
+            return null;
         }
 
-        // 3. オフハンド
-        storage = inventory.getItemInOffHand();
-        if (matches(storage, droppedItem)) {
-            return storage;
+        for (ItemStack candidate : inventory.getContents()) {
+
+            if (!nbt.isStorage(candidate)) {
+                continue;
+            }
+
+            // OFFなら候補にしない
+            if (!isAutoEnabled(candidate)) {
+                continue;
+            }
+
+            StorageData data = nbt.read(candidate);
+
+            if (data == null) {
+                continue;
+            }
+
+            ItemStack stored = data.getStoredItem();
+
+            if (stored == null || stored.getType() == Material.AIR) {
+                continue;
+            }
+
+            if (validator.isSameStoredItem(
+                    stored,
+                    droppedItem
+            )) {
+                return candidate;
+            }
         }
 
         return null;
     }
 
-    private boolean matches(ItemStack storage, ItemStack droppedItem) {
-        if (!nbt.isStorage(storage)) {
+    public boolean isAutoEnabled(ItemStack item) {
+
+        if (item == null || !item.hasItemMeta()) {
             return false;
         }
 
-        if (!isAutoEnabled(storage)) {
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
             return false;
         }
 
-        StorageData data = nbt.read(storage);
-        if (data == null) {
-            return false;
-        }
+        Byte value = meta.getPersistentDataContainer().get(
+                autoKey,
+                PersistentDataType.BYTE
+        );
 
-        return validator.isSameStoredItem(data.getStoredItem(), droppedItem);
-    }
-
-    private boolean isAutoEnabled(ItemStack storage) {
-        if (storage == null || !storage.hasItemMeta()) {
-            return false;
-        }
-
-        Byte value = storage.getItemMeta()
-                .getPersistentDataContainer()
-                .get(autoKey, PersistentDataType.BYTE);
-
-        return value != null && value == AutoCollectSettings.AUTO_ON;
+        return value != null
+                && value == AutoCollectSettings.AUTO_ON;
     }
 }

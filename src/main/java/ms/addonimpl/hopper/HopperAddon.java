@@ -26,12 +26,22 @@ public class HopperAddon {
 
     public void enable() {
         HopperSelector selector = new HopperSelector(nbt, validator);
+        HopperTransferUtil transferUtil = new HopperTransferUtil(nbt, validator);
 
-        HopperProcessor processor = new HopperProcessor(
+        HopperImportProcessor importProcessor = new HopperImportProcessor(
                 nbt,
                 lore,
                 validator,
-                selector
+                transferUtil
+        );
+
+        HopperExportProcessor exportProcessor = new HopperExportProcessor(
+                nbt,
+                lore,
+                validator,
+                selector,
+                transferUtil,
+                importProcessor
         );
 
         plugin.getServer().getPluginManager().registerEvents(
@@ -40,7 +50,13 @@ public class HopperAddon {
         );
 
         plugin.getServer().getPluginManager().registerEvents(
-                new HopperMoveListener(plugin, nbt, selector, processor),
+                new HopperMoveListener(
+                        plugin,
+                        nbt,
+                        selector,
+                        importProcessor,
+                        exportProcessor
+                ),
                 plugin
         );
 

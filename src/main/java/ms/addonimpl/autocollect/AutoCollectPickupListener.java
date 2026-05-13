@@ -67,9 +67,17 @@ public class AutoCollectPickupListener implements Listener {
             return;
         }
 
+        if (nbt.isStorage(dropped)) {
+            return;
+        }
+
         ItemStack storage = selector.findStorage(player.getInventory(), dropped);
 
         if (storage == null) {
+            return;
+        }
+
+        if (!selector.isAutoEnabled(storage)) {
             return;
         }
 
@@ -87,7 +95,6 @@ public class AutoCollectPickupListener implements Listener {
             itemEntity.setItemStack(dropped);
         }
 
-        player.getInventory().setItemInMainHand(player.getInventory().getItemInMainHand());
         player.updateInventory();
 
         player.playSound(
@@ -99,6 +106,10 @@ public class AutoCollectPickupListener implements Listener {
     }
 
     private long store(ItemStack storageItem, ItemStack droppedItem) {
+        if (!selector.isAutoEnabled(storageItem)) {
+            return 0L;
+        }
+
         StorageData data = nbt.read(storageItem);
 
         if (data == null) {

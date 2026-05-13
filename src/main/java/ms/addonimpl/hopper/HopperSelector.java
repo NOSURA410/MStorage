@@ -49,15 +49,27 @@ public class HopperSelector {
         return hopper.getBlock();
     }
 
-    public ItemStack findMatchingStorageInHopper(Inventory hopperInventory, ItemStack sourceItem) {
-        return findMatchingStorageInInventory(hopperInventory, sourceItem);
+    public ItemStack findMatchingStorageInHopper(
+            Inventory hopperInventory,
+            ItemStack sourceItem
+    ) {
+        return findMatchingStorageInInventory(
+                hopperInventory,
+                sourceItem
+        );
     }
 
-    public ItemStack findMatchingStorageInInventory(Inventory inventory, ItemStack sourceItem) {
-        if (inventory == null || sourceItem == null || sourceItem.getType() == Material.AIR) {
+    public ItemStack findMatchingStorageInInventory(
+            Inventory inventory,
+            ItemStack sourceItem
+    ) {
+        if (inventory == null
+                || sourceItem == null
+                || sourceItem.getType() == Material.AIR) {
             return null;
         }
 
+        // MSストレージ本体は収納対象外
         if (nbt.isStorage(sourceItem)) {
             return null;
         }
@@ -73,7 +85,14 @@ public class HopperSelector {
                 continue;
             }
 
-            if (validator.isSameStoredItem(data.getStoredItem(), sourceItem)) {
+            ItemStack stored = data.getStoredItem();
+
+            if (stored == null || stored.getType() == Material.AIR) {
+                continue;
+            }
+
+            // 搬入先としては amount 0 でも使用可能
+            if (validator.isSameStoredItem(stored, sourceItem)) {
                 return candidate;
             }
         }
@@ -97,6 +116,7 @@ public class HopperSelector {
                 continue;
             }
 
+            // 搬出元としては空ストレージを必ずスキップ
             if (data.getAmount() <= 0L) {
                 continue;
             }

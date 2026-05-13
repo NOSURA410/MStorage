@@ -18,7 +18,8 @@ public class HopperMoveListener implements Listener {
     private final JavaPlugin plugin;
     private final StorageNBT nbt;
     private final HopperSelector selector;
-    private final HopperProcessor processor;
+    private final HopperImportProcessor importProcessor;
+    private final HopperExportProcessor exportProcessor;
 
     private final Map<String, Long> lastProcessedTick = new HashMap<>();
 
@@ -26,12 +27,14 @@ public class HopperMoveListener implements Listener {
             JavaPlugin plugin,
             StorageNBT nbt,
             HopperSelector selector,
-            HopperProcessor processor
+            HopperImportProcessor importProcessor,
+            HopperExportProcessor exportProcessor
     ) {
         this.plugin = plugin;
         this.nbt = nbt;
         this.selector = selector;
-        this.processor = processor;
+        this.importProcessor = importProcessor;
+        this.exportProcessor = exportProcessor;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -41,50 +44,23 @@ public class HopperMoveListener implements Listener {
         Inventory destination = e.getDestination();
         ItemStack movingItem = e.getItem();
 
-        /*
-         * 最優先：
-         * 通常アイテム → 搬送先ホッパー内MSストレージへ収納
-         */
+        // 1. 通常アイテム → 搬送先Inventory内の同種MSストレージへ直接収納
         if (!nbt.isStorage(movingItem)
-                && HopperSettings.ENABLE_IMPORT_TO_STORAGE
-                && selector.isHopperInventory(destination)) {
+                && HopperSettings.ENABLE_IMPORT_TO_STORAGE) {
 
-            ItemStack storage = selector.findMatchingStorageInHopper(
+            ItemStack destinationStorage = selector.findMatchingStorageInInventory(
                     destination,
                     movingItem
             );
 
-            if (storage != null) {
-
+            if (destinationStorage != null) {
                 e.setCancelled(true);
 
-                /*
-                 * ホッパー → ホッパー は即時処理
-                 */
-                if (selector.isHopperInventory(source)) {
-
-                    int imported = processor.importToStorage(
-                            storage,
-                            source,
-                            movingItem
-                    );
-
-                    if (imported > 0) {
-                        markCooldown(destination);
-                    }
-
-                    return;
-                }
-
-                /*
-                 * チェスト/樽 → ホッパー は次tick処理
-                 */
                 ItemStack template = movingItem.clone();
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
-
-                    int imported = processor.importToStorage(
-                            storage,
+                    int imported = importProcessor.importToStorage(
+                            destinationStorage,
                             source,
                             template
                     );
@@ -98,47 +74,47 @@ public class HopperMoveListener implements Listener {
             }
         }
 
-        /*
-         * source内MSストレージ → destinationへ搬出
-         */
+        // 2. source内MSストレージ → destinationへ搬出
         if (HopperSettings.ENABLE_EXPORT_FROM_STORAGE) {
 
-            Inventory cooldownTarget =
-                    selector.isHopperInventory(source)
-                            ? source
-                            : destination;
+            Inventory cooldownTarget = selector.isHopperInventory(source)
+                    ? source
+                    : destination;
 
             if (!isCooldown(cooldownTarget)) {
-
-                ItemStack storage =
-                        selector.findExportableStorage(source);
+                ItemStack storage = selector.findExportableStorage(source);
 
                 if (storage != null) {
-
-                    int exported = processor.exportFromStorage(
+                    int exported = exportProcessor.exportFromStorage(
                             storage,
                             destination
                     );
 
                     if (exported > 0) {
-
                         markCooldown(cooldownTarget);
-
                         e.setCancelled(true);
-
                         return;
                     }
                 }
             }
         }
 
-        /*
-         * MSストレージ本体はホッパー移動禁止
-         */
-        if (HopperSettings.BLOCK_STORAGE_ITEM_MOVE
-                && nbt.isStorage(movingItem)) {
+        // 3. MSストレージ本体はホッパー移動禁止
+        //    空ストレージ等で詰まる場合は、同じInventory内の通常アイテムを代替搬送
+        if (HopperSettings.BLOCK_STORAGE_ITEM_MOVE && nbt.isStorage(movingItem)) {
 
             e.setCancelled(true);
+
+            if (!isCooldown(destination)) {
+                int moved = exportProcessor.moveNormalItemInsteadOfBlockedStorage(
+                        source,
+                        destination
+                );
+
+                if (moved > 0) {
+                    markCooldown(destination);
+                }
+            }
         }
     }
 
@@ -148,6 +124,10 @@ public class HopperMoveListener implements Listener {
 
         if (block == null) {
             return false;
+        }
+
+        if (!block.getChunk().isLoaded()) {
+            return true;
         }
 
         String key = block.getWorld().getName()
@@ -170,6 +150,10 @@ public class HopperMoveListener implements Listener {
         Block block = selector.getHopperBlock(inventory);
 
         if (block == null) {
+            return;
+        }
+
+        if (!block.getChunk().isLoaded()) {
             return;
         }
 

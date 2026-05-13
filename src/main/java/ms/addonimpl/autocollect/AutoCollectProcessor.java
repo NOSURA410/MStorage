@@ -22,7 +22,6 @@ public class AutoCollectProcessor {
     private static final long LC_SIZE = STACK_SIZE * LC_STACKS;
     private static final long MAX_LC = 100_000_000L;
     private static final long MAX_AMOUNT = LC_SIZE * MAX_LC;
-
     private static final long PICKUP_SOUND_COOLDOWN_MS = 300L;
 
     private final StorageNBT nbt;
@@ -79,9 +78,17 @@ public class AutoCollectProcessor {
                 continue;
             }
 
+            if (nbt.isStorage(dropped)) {
+                continue;
+            }
+
             ItemStack storage = selector.findStorage(player.getInventory(), dropped);
 
             if (storage == null) {
+                continue;
+            }
+
+            if (!selector.isAutoEnabled(storage)) {
                 continue;
             }
 
@@ -100,6 +107,10 @@ public class AutoCollectProcessor {
     }
 
     private boolean storeDroppedItem(ItemStack storageItem, ItemStack droppedItem) {
+        if (!selector.isAutoEnabled(storageItem)) {
+            return false;
+        }
+
         StorageData data = nbt.read(storageItem);
 
         if (data == null) {
@@ -147,10 +158,6 @@ public class AutoCollectProcessor {
     }
 
     private void playPickupSound(Player player) {
-        if (player == null) {
-            return;
-        }
-
         long now = System.currentTimeMillis();
         UUID uuid = player.getUniqueId();
 
