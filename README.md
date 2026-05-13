@@ -1,373 +1,131 @@
-````markdown
-# Material_Storage (MS)
+# MStorage
 
-Minecraft Paper / Purpur 用の単一アイテム圧縮ストレージプラグインです。
-
----
-
-# 対応環境
-
-- Minecraft 1.21.11
-- Java 21
-- Paper
-- Purpur
+Advanced material compression storage plugin for Paper / Purpur servers.
 
 ---
 
-# 主な機能
+# Supported Versions
 
-- 単一アイテム大量収納
-- 完全一致NBT対応
-- 自動回収
-- コンテナ収納 / 補充
-- ホッパー搬送対応
-- ホッパーフィルター対応
-- ストレージ間搬送
-- 擬似グロウ表示
-- Lore / 表示名自動更新
-- PDC安全保存
-- 増殖対策
-- 消失対策
+* Paper 1.21.11
+* Purpur 1.21.11
+* Paper 1.26.12
+* Purpur 1.26.12
 
 ---
 
-# クラフト方法
+# Requirements
 
-樽8個で中央アイテムを囲む
-
-```text
-[樽] [樽] [樽]
-[樽] [対象アイテム] [樽]
-[樽] [樽] [樽]
-````
-
-中央のアイテムがMSストレージになります。
+* Java 21+
+* Paper or Purpur server
 
 ---
 
-# ストレージ化できないアイテム
+# Features
 
-以下はストレージ化できません。
-
-* 装備
-* 防具
-* 耐久値を持つアイテム
-* すでにMSストレージ化済みのアイテム
-* 不正なItemMetaを持つアイテム
-
----
-
-# 表示形式
-
-```text
-MS: アイテム名 (LC S 端数)
-```
-
-例：
-
-```text
-MS: Stone (3LC 12S 24)
-```
+* Single material compression storage
+* Exact ItemStack matching
+* Auto collect system
+* HAND mode
+* CONTAINER mode
+* Grindstone de-storage
+* PDC-based safe storage system
+* Rollback-safe transaction handling
+* TPS protection system
+* Storage item protection
+* Container bulk storage support
+* Real-time lore and display updates
 
 ---
 
-# 容量表記
+# Storage Rules
 
-```text
-1S = 64個
-1LC = 54S = 3456個
-```
+* Only one exact item type can be stored per storage item
+* Storage items cannot store other storage items
+* Exact matching uses:
 
-例：
-
-```text
-1LC 2S 3
-= 3456 + 128 + 3
-= 3587個
-```
+  * Material
+  * ItemMeta
+  * PDC
+* Damage value is ignored
 
 ---
 
-# 基本操作
+# Auto Collect
 
-## HANDモード
-
-### 左クリック空中
-
-```text
-インベントリ内の対応アイテムを収納
-```
-
-### 右クリック空中
-
-```text
-ストレージからアイテムを取り出し
-```
-
-※ ブロックを見ている場合は誤作動防止のため動作しません。
+* Automatically collects nearby matching items
+* Collection radius: 4 blocks
+* Toggle ON/OFF supported
+* TPS-safe throttled processing
+* Storage items are excluded
 
 ---
 
-# モード切替
+# Modes
 
-```text
-スニーク + 右クリック
-```
+## HAND Mode
 
-で以下を切り替えます。
+Interact directly while holding the storage item.
 
-```text
-HAND
-CONTAINER
-```
+## CONTAINER Mode
+
+Store matching items into containers automatically.
 
 ---
 
-# CONTAINERモード
+# De-Storage
 
-コンテナを直接操作して収納・補充できます。
-
-## コンテナ左クリック
-
-```text
-コンテナ内の対応アイテムをMSストレージへ収納
-```
-
-## コンテナ右クリック
-
-```text
-MSストレージからコンテナへ補充
-```
+Use a grindstone to safely remove storage status and restore the original item.
 
 ---
 
-# 対応コンテナ
+# Commands
 
-* チェスト
-* トラップチェスト
-* 樽
-* シュルカーボックス各種
-
----
-
-# AutoCollect
-
-自動回収機能です。
-
-## ON/OFF切替
-
-```text
-スニーク + 空中左クリック
-```
-
-※ ブロックを見ている場合は切り替わりません。
+| Command          | Description          |
+| ---------------- | -------------------- |
+| /mstorage reload | Reload configuration |
 
 ---
 
-## AutoCollect動作
+# Permissions
 
-* 対応アイテムのみ回収
-* インベントリ満タンでも回収可能
-* MSストレージ本体は回収対象外
-* pickupDelayを尊重
-* 連続回収音を間引き
-* Loreへ状態表示
+| Permission      | Description                 | Default |
+| --------------- | --------------------------- | ------- |
+| mstorage.admin  | Administrative access       | OP      |
+| mstorage.reload | Reload plugin configuration | OP      |
 
 ---
 
-# ホッパー対応
+# Safety Features
 
-MSはホッパー搬送にも対応しています。
-
----
-
-## 1. ストレージ本体の移動禁止
-
-MSストレージ本体はホッパーで移動しません。
-
-```text
-MS本体は固定
-収納数のみ搬送
-```
+* Overflow rollback protection
+* Invalid item validation
+* Container safety checks
+* Inventory conflict prevention
+* Item duplication prevention
+* Auto collect safety filtering
+* Owner pickup protection
+* TPS-aware throttling
 
 ---
 
-## 2. ストレージから搬出
+# Notes
 
-例：
-
-```text
-チェストA
-└ MS: Stone
-
-↓ ホッパー
-
-チェストB
-└ Stone x64
-```
-
-収納数から最大64個ずつ搬出します。
+* Designed for Paper/Purpur servers only
+* Unsupported inventory modification plugins may cause conflicts
+* Always test on a backup server before production use
 
 ---
 
-## 3. ストレージへ収納
+# Development Environment
 
-搬送先に同種MSストレージがある場合：
-
-```text
-通常アイテム化せず
-↓
-収納数へ直接加算
-```
-
-例：
-
-```text
-チェストA
-└ Stone x64
-
-↓ ホッパー
-
-チェストB
-└ MS: Stone
-```
-
-結果：
-
-```text
-MS: Stone の収納数 +64
-```
+* Java 21
+* Maven
+* IntelliJ IDEA
+* Paper API
 
 ---
 
-## 4. ホッパーフィルター
+# License
 
-ホッパー内にMSストレージを入れると：
-
-```text
-対応アイテムのみ収納
-```
-
-できます。
-
-例：
-
-```text
-ホッパー内:
-MS: Iron Ingot
-
-搬送アイテム:
-Iron Ingot
-```
-
-→ Iron Ingotのみ収納。
-
----
-
-## 5. 仕分け機対応
-
-下段ホッパーにMSストレージを入れることで：
-
-```text
-対応アイテムのみ回収
-```
-
-できます。
-
-通常搬送より先に収納処理を行うため、回収漏れを減らしています。
-
----
-
-# 収納判定
-
-MSは完全一致で判定します。
-
-一致条件：
-
-* Material
-* ItemMeta
-* PDC
-* 名前
-* Lore
-* カスタムデータ
-
-そのため、見た目が同じでもNBTが違う場合は別アイテムとして扱います。
-
----
-
-# 保護機能
-
-MSストレージは以下に使用できません。
-
-* クラフト素材
-* かまど素材
-* 燃料
-* 村人交易
-* 鍛冶台
-* 石切台
-* 製図台
-* 織機
-* 金床
-* 弓 / クロスボウの矢
-* ホッパー搬送対象
-
----
-
-# 解除方法
-
-MSストレージは砥石で解除できます。
-
-解除条件：
-
-```text
-収納数 0
-```
-
-解除するとストレージ化前の状態へ戻ります。
-
----
-
-# 安全設計
-
-* PDC保存
-* Lore自動再生成
-* 表示名自動更新
-* 失敗時ロールバック
-* 増殖対策
-* 消失対策
-* ホッパー二重処理対策
-* AutoCollect音間引き
-* 不正NBT対策
-
----
-
-# Permission
-
-現在Permission不要。
-
-```text
-permissionなし
-OP不要
-```
-
----
-
-# ソースコード
-
-GitHubに以下を含みます。
-
-* Javaソースコード
-* pom.xml
-* plugin.yml
-* README.md
-
----
-
-# 注意事項
-
-* 複数バージョン対応時は実機確認推奨
-* 大規模ホッパー環境では設定調整推奨
-* 1.26系対応は別ブランチ管理推奨
-
-```
-```
+Private development repository.
+All rights reserved.
