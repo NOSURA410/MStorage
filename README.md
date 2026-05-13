@@ -1,5 +1,3 @@
-もちろんです。README用に **機能詳細多め** で書くなら、下のような形が良いです。
-
 ````markdown
 # Material_Storage (MS)
 
