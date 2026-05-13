@@ -30,6 +30,9 @@ public class StorageNBT {
     private final NamespacedKey keyOwner;
     private final NamespacedKey keyVersion;
 
+    // ★ 追加
+    private final NamespacedKey keyUid;
+
     public StorageNBT(JavaPlugin plugin) {
         this.keyStorage = new NamespacedKey(plugin, "mst_storage");
         this.keyItem = new NamespacedKey(plugin, "mst_item");
@@ -37,6 +40,9 @@ public class StorageNBT {
         this.keyMode = new NamespacedKey(plugin, "mst_mode");
         this.keyOwner = new NamespacedKey(plugin, "mst_owner");
         this.keyVersion = new NamespacedKey(plugin, "mst_version");
+
+        // ★ 追加
+        this.keyUid = new NamespacedKey(plugin, "mst_uid");
     }
 
     public boolean isStorage(ItemStack item) {
@@ -82,6 +88,9 @@ public class StorageNBT {
             return null;
         }
 
+        // ★ uid付与
+        ensureUid(storage);
+
         return storage;
     }
 
@@ -116,6 +125,7 @@ public class StorageNBT {
         }
 
         StorageMode mode = readModeSafely(pdc);
+
         UUID owner;
 
         try {
@@ -124,16 +134,29 @@ public class StorageNBT {
             return null;
         }
 
+        // ★ uid欠損修復
+        ensureUid(item);
+
         meta = item.getItemMeta();
         if (meta != null) {
             item.setItemMeta(meta);
         }
 
-        return new StorageData(storedItem, amount, mode, owner, version);
+        return new StorageData(
+                storedItem,
+                amount,
+                mode,
+                owner,
+                version
+        );
     }
 
     public boolean write(ItemStack item, StorageData data) {
-        if (item == null || data == null || data.getStoredItem() == null || data.getOwner() == null) {
+        if (item == null
+                || data == null
+                || data.getStoredItem() == null
+                || data.getOwner() == null) {
+
             return false;
         }
 
@@ -143,6 +166,7 @@ public class StorageNBT {
         }
 
         String serialized = serializeItem(data.getStoredItem());
+
         if (serialized == null) {
             return false;
         }
@@ -154,23 +178,75 @@ public class StorageNBT {
         pdc.set(keyAmount, PersistentDataType.LONG, data.getAmount());
 
         byte modeByte = toModeByte(data.getMode());
+
         pdc.remove(keyMode);
         pdc.set(keyMode, PersistentDataType.BYTE, modeByte);
 
-        pdc.set(keyOwner, PersistentDataType.STRING, data.getOwner().toString());
-        pdc.set(keyVersion, PersistentDataType.INTEGER, data.getVersion());
+        pdc.set(
+                keyOwner,
+                PersistentDataType.STRING,
+                data.getOwner().toString()
+        );
+
+        pdc.set(
+                keyVersion,
+                PersistentDataType.INTEGER,
+                data.getVersion()
+        );
+
+        // ★ uid欠損修復
+        if (!pdc.has(keyUid, PersistentDataType.STRING)) {
+            pdc.set(
+                    keyUid,
+                    PersistentDataType.STRING,
+                    UUID.randomUUID().toString()
+            );
+        }
 
         item.setItemMeta(meta);
         return true;
     }
 
+    // ★ 追加
+    public void ensureUid(ItemStack item) {
+
+        if (item == null || !item.hasItemMeta()) {
+            return;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+
+        if (meta == null) {
+            return;
+        }
+
+        PersistentDataContainer pdc =
+                meta.getPersistentDataContainer();
+
+        if (!pdc.has(keyUid, PersistentDataType.STRING)) {
+
+            pdc.set(
+                    keyUid,
+                    PersistentDataType.STRING,
+                    UUID.randomUUID().toString()
+            );
+
+            item.setItemMeta(meta);
+        }
+    }
+
     private StorageMode readModeSafely(PersistentDataContainer pdc) {
+
         if (pdc == null) {
             return StorageMode.HAND;
         }
 
         if (pdc.has(keyMode, PersistentDataType.BYTE)) {
-            Byte value = pdc.get(keyMode, PersistentDataType.BYTE);
+
+            Byte value = pdc.get(
+                    keyMode,
+                    PersistentDataType.BYTE
+            );
 
             if (value == null) {
                 resetModeToHand(pdc);
@@ -190,11 +266,23 @@ public class StorageNBT {
         }
 
         if (pdc.has(keyMode, PersistentDataType.STRING)) {
-            String modeName = pdc.get(keyMode, PersistentDataType.STRING);
-            StorageMode mode = parseOldStringMode(modeName);
+
+            String modeName =
+                    pdc.get(
+                            keyMode,
+                            PersistentDataType.STRING
+                    );
+
+            StorageMode mode =
+                    parseOldStringMode(modeName);
 
             pdc.remove(keyMode);
-            pdc.set(keyMode, PersistentDataType.BYTE, toModeByte(mode));
+
+            pdc.set(
+                    keyMode,
+                    PersistentDataType.BYTE,
+                    toModeByte(mode)
+            );
 
             return mode;
         }
@@ -204,6 +292,7 @@ public class StorageNBT {
     }
 
     private StorageMode parseOldStringMode(String modeName) {
+
         if (modeName == null) {
             return StorageMode.HAND;
         }
@@ -220,6 +309,7 @@ public class StorageNBT {
     }
 
     private StorageMode storageModeFromName(String modeName) {
+
         if (modeName == null) {
             return StorageMode.HAND;
         }
@@ -232,6 +322,7 @@ public class StorageNBT {
     }
 
     private byte toModeByte(StorageMode mode) {
+
         if (mode == null) {
             return MODE_HAND_BYTE;
         }
@@ -244,31 +335,55 @@ public class StorageNBT {
     }
 
     private void resetModeToHand(PersistentDataContainer pdc) {
+
         if (pdc == null) {
             return;
         }
 
         pdc.remove(keyMode);
-        pdc.set(keyMode, PersistentDataType.BYTE, MODE_HAND_BYTE);
+
+        pdc.set(
+                keyMode,
+                PersistentDataType.BYTE,
+                MODE_HAND_BYTE
+        );
     }
 
     private String serializeItem(ItemStack item) {
+
         try {
-            ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-            BukkitObjectOutputStream out = new BukkitObjectOutputStream(byteOut);
+
+            ByteArrayOutputStream byteOut =
+                    new ByteArrayOutputStream();
+
+            BukkitObjectOutputStream out =
+                    new BukkitObjectOutputStream(byteOut);
+
             out.writeObject(item);
             out.close();
-            return Base64.getEncoder().encodeToString(byteOut.toByteArray());
+
+            return Base64.getEncoder()
+                    .encodeToString(byteOut.toByteArray());
+
         } catch (Exception e) {
             return null;
         }
     }
 
     private ItemStack deserializeItem(String base64) {
+
         try {
-            byte[] data = Base64.getDecoder().decode(base64);
-            BukkitObjectInputStream in = new BukkitObjectInputStream(new ByteArrayInputStream(data));
+
+            byte[] data =
+                    Base64.getDecoder().decode(base64);
+
+            BukkitObjectInputStream in =
+                    new BukkitObjectInputStream(
+                            new ByteArrayInputStream(data)
+                    );
+
             Object object = in.readObject();
+
             in.close();
 
             if (!(object instanceof ItemStack item)) {
@@ -276,7 +391,9 @@ public class StorageNBT {
             }
 
             item.setAmount(1);
+
             return item;
+
         } catch (Exception e) {
             return null;
         }

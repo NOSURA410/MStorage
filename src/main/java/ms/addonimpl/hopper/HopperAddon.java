@@ -44,6 +44,11 @@ public class HopperAddon {
                 importProcessor
         );
 
+        HopperLockManager lockManager = new HopperLockManager(
+                plugin,
+                selector
+        );
+
         plugin.getServer().getPluginManager().registerEvents(
                 new HopperStorageItemGuardListener(nbt),
                 plugin
@@ -55,7 +60,8 @@ public class HopperAddon {
                         nbt,
                         selector,
                         importProcessor,
-                        exportProcessor
+                        exportProcessor,
+                        lockManager
                 ),
                 plugin
         );

@@ -5,6 +5,7 @@ import ms.core.StorageValidator;
 import ms.model.StorageData;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Hopper;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -49,6 +50,32 @@ public class HopperSelector {
         return hopper.getBlock();
     }
 
+    public Block getInventoryBlock(Inventory inventory) {
+        if (inventory == null || inventory.getHolder() == null) {
+            return null;
+        }
+
+        if (inventory.getHolder() instanceof BlockState state) {
+            return state.getBlock();
+        }
+
+        return null;
+    }
+
+    public boolean hasStorage(Inventory inventory) {
+        if (inventory == null) {
+            return false;
+        }
+
+        for (ItemStack item : inventory.getStorageContents()) {
+            if (nbt.isStorage(item)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public ItemStack findMatchingStorageInHopper(
             Inventory hopperInventory,
             ItemStack sourceItem
@@ -69,12 +96,12 @@ public class HopperSelector {
             return null;
         }
 
-        // MSストレージ本体は収納対象外
         if (nbt.isStorage(sourceItem)) {
             return null;
         }
 
         for (ItemStack candidate : inventory.getStorageContents()) {
+
             if (!nbt.isStorage(candidate)) {
                 continue;
             }
@@ -91,7 +118,6 @@ public class HopperSelector {
                 continue;
             }
 
-            // 搬入先としては amount 0 でも使用可能
             if (validator.isSameStoredItem(stored, sourceItem)) {
                 return candidate;
             }
@@ -101,11 +127,13 @@ public class HopperSelector {
     }
 
     public ItemStack findExportableStorage(Inventory sourceInventory) {
+
         if (sourceInventory == null) {
             return null;
         }
 
         for (ItemStack candidate : sourceInventory.getStorageContents()) {
+
             if (!nbt.isStorage(candidate)) {
                 continue;
             }
@@ -116,7 +144,6 @@ public class HopperSelector {
                 continue;
             }
 
-            // 搬出元としては空ストレージを必ずスキップ
             if (data.getAmount() <= 0L) {
                 continue;
             }
