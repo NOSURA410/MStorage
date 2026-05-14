@@ -4,6 +4,7 @@ import ms.core.StorageLore;
 import ms.core.StorageNBT;
 import ms.core.StorageValidator;
 import ms.model.StorageData;
+import org.bukkit.Material;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -41,9 +42,16 @@ public class HopperImportProcessor {
             return 0;
         }
 
+        if (template.getType() == Material.AIR) {
+            return 0;
+        }
+
         if (nbt.isStorage(template)) {
             return 0;
         }
+
+        ItemStack cleanTemplate = template.clone();
+        cleanTemplate.setAmount(1);
 
         StorageData data = nbt.read(storageItem);
 
@@ -51,7 +59,16 @@ public class HopperImportProcessor {
             return 0;
         }
 
-        if (!validator.isSameStoredItem(data.getStoredItem(), template)) {
+        ItemStack storedItem = data.getStoredItem();
+
+        if (storedItem == null || storedItem.getType() == Material.AIR) {
+            return 0;
+        }
+
+        ItemStack cleanStored = storedItem.clone();
+        cleanStored.setAmount(1);
+
+        if (!validator.isSameStoredItem(cleanStored, cleanTemplate)) {
             return 0;
         }
 
@@ -63,7 +80,7 @@ public class HopperImportProcessor {
 
         int movable = transferUtil.countMovableItems(
                 sourceInventory,
-                template
+                cleanTemplate
         );
 
         if (movable <= 0) {
@@ -75,9 +92,11 @@ public class HopperImportProcessor {
                 HopperSettings.MAX_TRANSFER_PER_OPERATION
         );
 
+        long capacity = MAX_AMOUNT - currentAmount;
+
         moveAmount = (int) Math.min(
                 moveAmount,
-                MAX_AMOUNT - currentAmount
+                capacity
         );
 
         if (moveAmount <= 0) {
@@ -86,7 +105,7 @@ public class HopperImportProcessor {
 
         int removed = transferUtil.removeItems(
                 sourceInventory,
-                template,
+                cleanTemplate,
                 moveAmount
         );
 
@@ -94,17 +113,28 @@ public class HopperImportProcessor {
             return 0;
         }
 
-        StorageData updated = data.withAmount(currentAmount + removed);
+        StorageData updated = data.withAmount(
+                currentAmount + removed
+        );
 
         if (!nbt.write(storageItem, updated)) {
-            transferUtil.restoreItems(sourceInventory, template, removed);
+            transferUtil.restoreItems(
+                    sourceInventory,
+                    cleanTemplate,
+                    removed
+            );
             return 0;
         }
 
         if (!lore.update(storageItem, updated)) {
             nbt.write(storageItem, data);
             lore.update(storageItem, data);
-            transferUtil.restoreItems(sourceInventory, template, removed);
+
+            transferUtil.restoreItems(
+                    sourceInventory,
+                    cleanTemplate,
+                    removed
+            );
             return 0;
         }
 

@@ -2,13 +2,11 @@ package ms.addonimpl.hopper;
 
 import ms.core.StorageNBT;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -16,8 +14,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class HopperMoveListener implements Listener {
-
-    private static final int DOWNSTREAM_CHECK_DEPTH = 4;
 
     private final JavaPlugin plugin;
     private final StorageNBT nbt;
@@ -46,44 +42,25 @@ public class HopperMoveListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onMove(InventoryMoveItemEvent e) {
+
         Inventory source = e.getSource();
         Inventory destination = e.getDestination();
         ItemStack movingItem = e.getItem();
 
-        if (source == null || destination == null || movingItem == null || movingItem.getAmount() <= 0) {
+        if (source == null
+                || destination == null
+                || movingItem == null
+                || movingItem.getAmount() <= 0) {
             return;
         }
 
-        /*
-         * 最優先：
-         * 横方向に流れようとしているが、下方向に対応MSストレージ経路がある場合、
-         * 横流しをキャンセルして source をロック延長する。
-         */
-        if (!nbt.isStorage(movingItem)
-                && selector.isHopperInventory(source)
-                && selector.isHopperInventory(destination)
-                && isHorizontalTransfer(source, destination)
-                && hasMatchingStorageDownstream(source, movingItem)) {
-
-            e.setCancelled(true);
-            lockManager.refreshLock(source);
-            return;
-        }
-
-        /*
-         * source がロック中なら、対応MS収納以外の搬出は止める。
-         */
         if (selector.hasStorage(source)
                 && lockManager.isLocked(source)
                 && !hasMatchingStorage(destination, movingItem)) {
-
             e.setCancelled(true);
             return;
         }
 
-        /*
-         * 通常アイテム → 搬送先Inventory内の同種MSストレージへ直接収納
-         */
         if (!nbt.isStorage(movingItem)
                 && HopperSettings.ENABLE_IMPORT_TO_STORAGE) {
 
@@ -93,23 +70,13 @@ public class HopperMoveListener implements Listener {
             );
 
             if (destinationStorage != null) {
+                ItemStack template = movingItem.clone();
+                template.setAmount(1);
+
                 e.setCancelled(true);
 
-                ItemStack template = movingItem.clone();
-
-                if (selector.isHopperInventory(source)) {
-                    int imported = importProcessor.importToStorage(
-                            destinationStorage,
-                            source,
-                            template
-                    );
-
-                    if (imported > 0) {
-                        lockManager.refreshLock(source);
-                        markCooldown(destination);
-                    }
-
-                    return;
+                if (selector.hasStorage(source)) {
+                    lockManager.refreshLock(source);
                 }
 
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -120,7 +87,10 @@ public class HopperMoveListener implements Listener {
                     );
 
                     if (imported > 0) {
-                        lockManager.refreshLock(source);
+                        if (selector.hasStorage(source)) {
+                            lockManager.refreshLock(source);
+                        }
+
                         markCooldown(destination);
                     }
                 });
@@ -129,15 +99,14 @@ public class HopperMoveListener implements Listener {
             }
         }
 
-        /*
-         * source内MSストレージ → destinationへ搬出
-         */
         if (HopperSettings.ENABLE_EXPORT_FROM_STORAGE) {
+
             Inventory cooldownTarget = selector.isHopperInventory(source)
                     ? source
                     : destination;
 
             if (!isCooldown(cooldownTarget)) {
+
                 ItemStack storage = selector.findExportableStorage(source);
 
                 if (storage != null) {
@@ -155,10 +124,9 @@ public class HopperMoveListener implements Listener {
             }
         }
 
-        /*
-         * MSストレージ本体はホッパー移動禁止
-         */
-        if (HopperSettings.BLOCK_STORAGE_ITEM_MOVE && nbt.isStorage(movingItem)) {
+        if (HopperSettings.BLOCK_STORAGE_ITEM_MOVE
+                && nbt.isStorage(movingItem)) {
+
             e.setCancelled(true);
 
             if (!isCooldown(destination)) {
@@ -174,55 +142,6 @@ public class HopperMoveListener implements Listener {
         }
     }
 
-    private boolean isHorizontalTransfer(
-            Inventory source,
-            Inventory destination
-    ) {
-        Block sourceBlock = selector.getInventoryBlock(source);
-        Block destinationBlock = selector.getInventoryBlock(destination);
-
-        if (sourceBlock == null || destinationBlock == null) {
-            return false;
-        }
-
-        return sourceBlock.getY() == destinationBlock.getY()
-                && (
-                sourceBlock.getX() != destinationBlock.getX()
-                        || sourceBlock.getZ() != destinationBlock.getZ()
-        );
-    }
-
-    private boolean hasMatchingStorageDownstream(
-            Inventory source,
-            ItemStack movingItem
-    ) {
-        Block sourceBlock = selector.getInventoryBlock(source);
-
-        if (sourceBlock == null || movingItem == null) {
-            return false;
-        }
-
-        Block current = sourceBlock;
-
-        for (int i = 0; i < DOWNSTREAM_CHECK_DEPTH; i++) {
-            current = current.getRelative(0, -1, 0);
-
-            BlockState state = current.getState();
-
-            if (!(state instanceof InventoryHolder holder)) {
-                return false;
-            }
-
-            Inventory inventory = holder.getInventory();
-
-            if (selector.findMatchingStorageInInventory(inventory, movingItem) != null) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     private boolean hasMatchingStorage(
             Inventory destination,
             ItemStack movingItem
@@ -234,7 +153,8 @@ public class HopperMoveListener implements Listener {
     }
 
     private boolean isCooldown(Inventory inventory) {
-        Block block = selector.getHopperBlock(inventory);
+
+        Block block = selector.getInventoryBlock(inventory);
 
         if (block == null) {
             return false;
@@ -260,7 +180,8 @@ public class HopperMoveListener implements Listener {
     }
 
     private void markCooldown(Inventory inventory) {
-        Block block = selector.getHopperBlock(inventory);
+
+        Block block = selector.getInventoryBlock(inventory);
 
         if (block == null) {
             return;

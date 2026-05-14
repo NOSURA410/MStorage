@@ -29,6 +29,12 @@ public class HopperTransferUtil {
             return 0;
         }
 
+        ItemStack cleanTemplate = normalize(template);
+
+        if (cleanTemplate == null) {
+            return 0;
+        }
+
         int total = 0;
 
         for (ItemStack item : inventory.getStorageContents()) {
@@ -40,7 +46,13 @@ public class HopperTransferUtil {
                 continue;
             }
 
-            if (validator.isSameStoredItem(template, item)) {
+            ItemStack cleanItem = normalize(item);
+
+            if (cleanItem == null) {
+                continue;
+            }
+
+            if (validator.isSameStoredItem(cleanTemplate, cleanItem)) {
                 total += item.getAmount();
             }
         }
@@ -54,6 +66,12 @@ public class HopperTransferUtil {
             int amount
     ) {
         if (inventory == null || template == null || amount <= 0) {
+            return 0;
+        }
+
+        ItemStack cleanTemplate = normalize(template);
+
+        if (cleanTemplate == null) {
             return 0;
         }
 
@@ -73,15 +91,28 @@ public class HopperTransferUtil {
                 continue;
             }
 
-            if (!validator.isSameStoredItem(template, item)) {
+            ItemStack cleanItem = normalize(item);
+
+            if (cleanItem == null) {
                 continue;
             }
 
-            int take = Math.min(item.getAmount(), remaining);
-            item.setAmount(item.getAmount() - take);
+            if (!validator.isSameStoredItem(cleanTemplate, cleanItem)) {
+                continue;
+            }
 
-            if (item.getAmount() <= 0) {
+            int take = Math.min(
+                    item.getAmount(),
+                    remaining
+            );
+
+            ItemStack next = item.clone();
+            next.setAmount(item.getAmount() - take);
+
+            if (next.getAmount() <= 0) {
                 contents[i] = null;
+            } else {
+                contents[i] = next;
             }
 
             removed += take;
@@ -109,7 +140,10 @@ public class HopperTransferUtil {
         int maxStackSize = template.getMaxStackSize();
 
         while (remaining > 0) {
-            int putAmount = Math.min(remaining, maxStackSize);
+            int putAmount = Math.min(
+                    remaining,
+                    maxStackSize
+            );
 
             ItemStack restore = template.clone();
             restore.setAmount(putAmount);
@@ -128,6 +162,12 @@ public class HopperTransferUtil {
             return 0;
         }
 
+        ItemStack cleanItem = normalize(item);
+
+        if (cleanItem == null) {
+            return 0;
+        }
+
         int total = 0;
         int maxStack = item.getMaxStackSize();
 
@@ -137,8 +177,21 @@ public class HopperTransferUtil {
                 continue;
             }
 
-            if (slot.isSimilar(item)) {
-                total += Math.max(0, maxStack - slot.getAmount());
+            if (nbt.isStorage(slot)) {
+                continue;
+            }
+
+            ItemStack cleanSlot = normalize(slot);
+
+            if (cleanSlot == null) {
+                continue;
+            }
+
+            if (validator.isSameStoredItem(cleanItem, cleanSlot)) {
+                total += Math.max(
+                        0,
+                        maxStack - slot.getAmount()
+                );
             }
         }
 
@@ -180,5 +233,16 @@ public class HopperTransferUtil {
         }
 
         return requested - leftAmount;
+    }
+
+    private ItemStack normalize(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) {
+            return null;
+        }
+
+        ItemStack clean = item.clone();
+        clean.setAmount(1);
+
+        return clean;
     }
 }
