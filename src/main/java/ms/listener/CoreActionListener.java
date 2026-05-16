@@ -8,6 +8,7 @@ import ms.service.StorageService;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -16,13 +17,20 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class CoreActionListener implements Listener {
 
     private static final int BLOCK_REACH_DISTANCE = 5;
+    private static final long RIGHT_CLICK_GUARD_MS = 250L;
 
     private final StorageNBT nbt;
     private final StorageService service;
     private final FeedbackManager feedback;
+
+    private final Map<UUID, Long> lastRightClickStorage = new HashMap<>();
 
     public CoreActionListener(StorageNBT nbt, StorageService service, FeedbackManager feedback) {
         this.nbt = nbt;
@@ -52,17 +60,37 @@ public class CoreActionListener implements Listener {
             return;
         }
 
+        lastRightClickStorage.put(
+                player.getUniqueId(),
+                System.currentTimeMillis()
+        );
+
         StorageData data = nbt.read(item);
 
         if (data == null || data.getMode() != StorageMode.HAND) {
+            e.setCancelled(true);
+            e.setUseItemInHand(Event.Result.DENY);
+            return;
+        }
+
+        if (data.getAmount() <= 0L) {
+            e.setCancelled(true);
+            e.setUseItemInHand(Event.Result.DENY);
+            e.setUseInteractedBlock(Event.Result.DENY);
+            feedback.fail(player);
             return;
         }
 
         if (isLookingAtBlock(player)) {
+            e.setCancelled(true);
+            e.setUseItemInHand(Event.Result.DENY);
+            e.setUseInteractedBlock(Event.Result.DENY);
             return;
         }
 
         e.setCancelled(true);
+        e.setUseItemInHand(Event.Result.DENY);
+        e.setUseInteractedBlock(Event.Result.DENY);
 
         int removed = service.withdraw(player, item);
 
@@ -78,6 +106,10 @@ public class CoreActionListener implements Listener {
     @EventHandler
     public void onLeftClickAir(PlayerAnimationEvent e) {
         Player player = e.getPlayer();
+
+        if (isRecentlyRightClickedStorage(player)) {
+            return;
+        }
 
         if (player.isSneaking()) {
             return;
@@ -108,6 +140,16 @@ public class CoreActionListener implements Listener {
         } else {
             feedback.fail(player);
         }
+    }
+
+    private boolean isRecentlyRightClickedStorage(Player player) {
+        Long last = lastRightClickStorage.get(player.getUniqueId());
+
+        if (last == null) {
+            return false;
+        }
+
+        return System.currentTimeMillis() - last < RIGHT_CLICK_GUARD_MS;
     }
 
     private boolean isLookingAtBlock(Player player) {

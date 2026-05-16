@@ -4,9 +4,12 @@ import ms.core.StorageLore;
 import ms.core.StorageNBT;
 import ms.core.StorageValidator;
 import ms.model.StorageData;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.Map;
 
 public class StorageService {
 
@@ -56,6 +59,10 @@ public class StorageService {
 
             ItemStack item = inv.getItem(i);
 
+            if (nbt.isStorage(item)) {
+                continue;
+            }
+
             if (!validator.isSameStoredItem(target, item)) {
                 continue;
             }
@@ -102,45 +109,108 @@ public class StorageService {
         }
 
         StorageData data = nbt.read(storageItem);
+
         if (data == null) {
             return 0;
         }
 
-        if (data.getAmount() <= 0L) {
+        long currentAmount = data.getAmount();
+
+        if (currentAmount <= 0L) {
             return 0;
         }
 
         ItemStack base = data.getStoredItem();
-        if (base == null) {
+
+        if (base == null || base.getType() == Material.AIR) {
             return 0;
         }
 
-        int giveAmount = (int) Math.min((long) base.getMaxStackSize(), data.getAmount());
+        int maxStackSize = Math.max(1, base.getMaxStackSize());
+
+        int giveAmount = (int) Math.min(
+                currentAmount,
+                maxStackSize
+        );
 
         if (giveAmount <= 0) {
-            return 0;
-        }
-
-        if (!canFit(player.getInventory(), base, giveAmount)) {
             return 0;
         }
 
         ItemStack give = base.clone();
         give.setAmount(giveAmount);
 
-        player.getInventory().addItem(give);
+        Map<Integer, ItemStack> leftover = player.getInventory().addItem(give);
 
-        StorageData newData = data.withAmount(data.getAmount() - giveAmount);
+        int leftoverAmount = 0;
+
+        for (ItemStack item : leftover.values()) {
+            if (item != null && item.getType() != Material.AIR) {
+                leftoverAmount += item.getAmount();
+            }
+        }
+
+        int actuallyGiven = giveAmount - leftoverAmount;
+
+        if (actuallyGiven <= 0) {
+            return 0;
+        }
+
+        StorageData newData = data.withAmount(currentAmount - actuallyGiven);
 
         if (!nbt.write(storageItem, newData)) {
+            rollbackWithdraw(player, base, actuallyGiven);
             return 0;
         }
 
         if (!lore.update(storageItem, newData)) {
+            nbt.write(storageItem, data);
+            lore.update(storageItem, data);
+            rollbackWithdraw(player, base, actuallyGiven);
             return 0;
         }
 
-        return giveAmount;
+        return actuallyGiven;
+    }
+
+    private void rollbackWithdraw(Player player, ItemStack baseItem, int amount) {
+        if (player == null || baseItem == null || amount <= 0) {
+            return;
+        }
+
+        Inventory inventory = player.getInventory();
+
+        int remaining = amount;
+
+        for (int i = 0; i < inventory.getSize(); i++) {
+            if (remaining <= 0) {
+                break;
+            }
+
+            ItemStack item = inventory.getItem(i);
+
+            if (item == null || item.getType() == Material.AIR) {
+                continue;
+            }
+
+            if (!validator.isSameStoredItem(baseItem, item)) {
+                continue;
+            }
+
+            int take = Math.min(item.getAmount(), remaining);
+
+            item.setAmount(item.getAmount() - take);
+
+            if (item.getAmount() <= 0) {
+                inventory.setItem(i, null);
+            } else {
+                inventory.setItem(i, item);
+            }
+
+            remaining -= take;
+        }
+
+        player.updateInventory();
     }
 
     private boolean canFit(Inventory inventory, ItemStack baseItem, int amount) {
@@ -149,7 +219,7 @@ public class StorageService {
         }
 
         int remaining = amount;
-        int maxStackSize = baseItem.getMaxStackSize();
+        int maxStackSize = Math.max(1, baseItem.getMaxStackSize());
 
         for (ItemStack item : inventory.getStorageContents()) {
             if (item == null || item.getType().isAir()) {
