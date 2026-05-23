@@ -1,11 +1,15 @@
 package ms.api;
 
+import ms.api.event.StorageAmountChangeEvent;
 import ms.core.StorageLore;
 import ms.core.StorageNBT;
 import ms.core.StorageValidator;
+import ms.manager.StorageLoreUpdateQueue;
 import ms.model.StorageData;
 import org.bukkit.Material;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public class StorageBridge {
 
@@ -15,18 +19,24 @@ public class StorageBridge {
     private static final long MAX_LC = 100_000_000L;
     private static final long MAX_AMOUNT = LC_SIZE * MAX_LC;
 
+    private final JavaPlugin plugin;
     private final StorageNBT nbt;
     private final StorageLore lore;
     private final StorageValidator validator;
+    private final StorageLoreUpdateQueue loreQueue;
 
     public StorageBridge(
+            JavaPlugin plugin,
             StorageNBT nbt,
             StorageLore lore,
-            StorageValidator validator
+            StorageValidator validator,
+            StorageLoreUpdateQueue loreQueue
     ) {
+        this.plugin = plugin;
         this.nbt = nbt;
         this.lore = lore;
         this.validator = validator;
+        this.loreQueue = loreQueue;
     }
 
     public boolean isStorage(ItemStack item) {
@@ -104,6 +114,14 @@ public class StorageBridge {
     }
 
     public long addAmount(ItemStack storageItem, long amount) {
+        return addAmount(null, storageItem, amount);
+    }
+
+    public long addAmount(
+            Inventory inventory,
+            ItemStack storageItem,
+            long amount
+    ) {
         if (storageItem == null || amount <= 0L) {
             return 0L;
         }
@@ -114,34 +132,47 @@ public class StorageBridge {
             return 0L;
         }
 
-        long current = data.getAmount();
+        long oldAmount = data.getAmount();
 
-        if (current >= MAX_AMOUNT) {
+        if (oldAmount >= MAX_AMOUNT) {
             return 0L;
         }
 
-        long add = Math.min(amount, MAX_AMOUNT - current);
+        long add = Math.min(amount, MAX_AMOUNT - oldAmount);
 
         if (add <= 0L) {
             return 0L;
         }
 
-        StorageData updated = data.withAmount(current + add);
+        long newAmount = oldAmount + add;
+
+        StorageData updated = data.withAmount(newAmount);
 
         if (!nbt.write(storageItem, updated)) {
             return 0L;
         }
 
-        if (!lore.update(storageItem, updated)) {
-            nbt.write(storageItem, data);
-            lore.update(storageItem, data);
-            return 0L;
-        }
+        loreQueue.queue(storageItem);
+
+        callAmountChangeEvent(
+                inventory,
+                storageItem,
+                oldAmount,
+                newAmount
+        );
 
         return add;
     }
 
     public long removeAmount(ItemStack storageItem, long amount) {
+        return removeAmount(null, storageItem, amount);
+    }
+
+    public long removeAmount(
+            Inventory inventory,
+            ItemStack storageItem,
+            long amount
+    ) {
         if (storageItem == null || amount <= 0L) {
             return 0L;
         }
@@ -152,29 +183,34 @@ public class StorageBridge {
             return 0L;
         }
 
-        long current = data.getAmount();
+        long oldAmount = data.getAmount();
 
-        if (current <= 0L) {
+        if (oldAmount <= 0L) {
             return 0L;
         }
 
-        long remove = Math.min(amount, current);
+        long remove = Math.min(amount, oldAmount);
 
         if (remove <= 0L) {
             return 0L;
         }
 
-        StorageData updated = data.withAmount(current - remove);
+        long newAmount = oldAmount - remove;
+
+        StorageData updated = data.withAmount(newAmount);
 
         if (!nbt.write(storageItem, updated)) {
             return 0L;
         }
 
-        if (!lore.update(storageItem, updated)) {
-            nbt.write(storageItem, data);
-            lore.update(storageItem, data);
-            return 0L;
-        }
+        loreQueue.queue(storageItem);
+
+        callAmountChangeEvent(
+                inventory,
+                storageItem,
+                oldAmount,
+                newAmount
+        );
 
         return remove;
     }
@@ -184,7 +220,34 @@ public class StorageBridge {
             ItemStack destinationStorage,
             long requestedAmount
     ) {
-        if (sourceStorage == null || destinationStorage == null || requestedAmount <= 0L) {
+        return moveStorageToStorage(
+                null,
+                sourceStorage,
+                null,
+                destinationStorage,
+                requestedAmount
+        );
+    }
+
+    public long moveStorageToStorage(
+            Inventory sourceInventory,
+            ItemStack sourceStorage,
+            Inventory destinationInventory,
+            ItemStack destinationStorage,
+            long requestedAmount
+    ) {
+
+        /*
+         * 重要:
+         * 同一MSへの転送禁止。
+         */
+        if (sourceStorage == destinationStorage) {
+            return 0L;
+        }
+
+        if (sourceStorage == null
+                || destinationStorage == null
+                || requestedAmount <= 0L) {
             return 0L;
         }
 
@@ -195,53 +258,90 @@ public class StorageBridge {
             return 0L;
         }
 
-        if (!isSameStoredItem(sourceData.getStoredItem(), destinationData.getStoredItem())) {
+        if (!isSameStoredItem(
+                sourceData.getStoredItem(),
+                destinationData.getStoredItem()
+        )) {
             return 0L;
         }
 
-        long sourceAmount = sourceData.getAmount();
-        long destinationAmount = destinationData.getAmount();
+        long sourceOldAmount = sourceData.getAmount();
+        long destinationOldAmount = destinationData.getAmount();
 
-        if (sourceAmount <= 0L || destinationAmount >= MAX_AMOUNT) {
+        if (sourceOldAmount <= 0L
+                || destinationOldAmount >= MAX_AMOUNT) {
             return 0L;
         }
 
-        long moveAmount = Math.min(requestedAmount, sourceAmount);
-        moveAmount = Math.min(moveAmount, MAX_AMOUNT - destinationAmount);
+        long moveAmount =
+                Math.min(requestedAmount, sourceOldAmount);
+
+        moveAmount =
+                Math.min(
+                        moveAmount,
+                        MAX_AMOUNT - destinationOldAmount
+                );
 
         if (moveAmount <= 0L) {
             return 0L;
         }
 
-        StorageData newSourceData = sourceData.withAmount(sourceAmount - moveAmount);
-        StorageData newDestinationData = destinationData.withAmount(destinationAmount + moveAmount);
+        long sourceNewAmount =
+                sourceOldAmount - moveAmount;
+
+        long destinationNewAmount =
+                destinationOldAmount + moveAmount;
+
+        StorageData newSourceData =
+                sourceData.withAmount(sourceNewAmount);
+
+        StorageData newDestinationData =
+                destinationData.withAmount(destinationNewAmount);
 
         if (!nbt.write(sourceStorage, newSourceData)) {
             return 0L;
         }
 
         if (!nbt.write(destinationStorage, newDestinationData)) {
-            nbt.write(sourceStorage, sourceData);
-            lore.update(sourceStorage, sourceData);
+
+            rollback(sourceStorage, sourceData);
+
             return 0L;
         }
 
-        if (!lore.update(sourceStorage, newSourceData)) {
-            rollback(sourceStorage, sourceData);
-            rollback(destinationStorage, destinationData);
-            return 0L;
-        }
+        loreQueue.queue(sourceStorage);
+        loreQueue.queue(destinationStorage);
 
-        if (!lore.update(destinationStorage, newDestinationData)) {
-            rollback(sourceStorage, sourceData);
-            rollback(destinationStorage, destinationData);
-            return 0L;
-        }
+        callAmountChangeEvent(
+                sourceInventory,
+                sourceStorage,
+                sourceOldAmount,
+                sourceNewAmount
+        );
+
+        callAmountChangeEvent(
+                destinationInventory,
+                destinationStorage,
+                destinationOldAmount,
+                destinationNewAmount
+        );
 
         return moveAmount;
     }
 
     public long storeItemStackIntoStorage(
+            ItemStack storageItem,
+            ItemStack sourceItem
+    ) {
+        return storeItemStackIntoStorage(
+                null,
+                storageItem,
+                sourceItem
+        );
+    }
+
+    public long storeItemStackIntoStorage(
+            Inventory inventory,
             ItemStack storageItem,
             ItemStack sourceItem
     ) {
@@ -255,19 +355,51 @@ public class StorageBridge {
             return 0L;
         }
 
-        long added = addAmount(storageItem, sourceAmount);
+        long added = addAmount(
+                inventory,
+                storageItem,
+                sourceAmount
+        );
 
         if (added <= 0L) {
             return 0L;
         }
 
-        sourceItem.setAmount(sourceAmount - (int) added);
+        sourceItem.setAmount(
+                sourceAmount - (int) added
+        );
 
         return added;
     }
 
-    private void rollback(ItemStack storageItem, StorageData originalData) {
-        if (storageItem == null || originalData == null) {
+    private void callAmountChangeEvent(
+            Inventory inventory,
+            ItemStack storageItem,
+            long oldAmount,
+            long newAmount
+    ) {
+        if (oldAmount == newAmount) {
+            return;
+        }
+
+        plugin.getServer()
+                .getPluginManager()
+                .callEvent(
+                        new StorageAmountChangeEvent(
+                                inventory,
+                                storageItem,
+                                oldAmount,
+                                newAmount
+                        )
+                );
+    }
+
+    private void rollback(
+            ItemStack storageItem,
+            StorageData originalData
+    ) {
+        if (storageItem == null
+                || originalData == null) {
             return;
         }
 
@@ -276,7 +408,8 @@ public class StorageBridge {
     }
 
     private ItemStack normalize(ItemStack item) {
-        if (item == null || item.getType() == Material.AIR) {
+        if (item == null
+                || item.getType() == Material.AIR) {
             return null;
         }
 

@@ -1,75 +1,47 @@
 package ms.addonimpl.hopper;
 
-import ms.core.StorageLore;
 import ms.core.StorageNBT;
-import ms.core.StorageValidator;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class HopperAddon {
 
     private final JavaPlugin plugin;
     private final StorageNBT nbt;
-    private final StorageLore lore;
-    private final StorageValidator validator;
+
+    private HopperMoveListener listener;
 
     public HopperAddon(
             JavaPlugin plugin,
-            StorageNBT nbt,
-            StorageLore lore,
-            StorageValidator validator
+            StorageNBT nbt
     ) {
         this.plugin = plugin;
         this.nbt = nbt;
-        this.lore = lore;
-        this.validator = validator;
     }
 
     public void enable() {
-        HopperSelector selector = new HopperSelector(nbt, validator);
-        HopperTransferUtil transferUtil = new HopperTransferUtil(nbt, validator);
+        listener = new HopperMoveListener(nbt);
 
-        HopperImportProcessor importProcessor = new HopperImportProcessor(
-                nbt,
-                lore,
-                validator,
-                transferUtil
+        plugin.getServer()
+                .getPluginManager()
+                .registerEvents(
+                        listener,
+                        plugin
+                );
+
+        plugin.getLogger().info(
+                "[MStorage] Hopper storage-item protection enabled."
         );
-
-        HopperExportProcessor exportProcessor = new HopperExportProcessor(
-                nbt,
-                lore,
-                validator,
-                selector,
-                transferUtil,
-                importProcessor
-        );
-
-        HopperLockManager lockManager = new HopperLockManager(
-                plugin,
-                selector
-        );
-
-        plugin.getServer().getPluginManager().registerEvents(
-                new HopperStorageItemGuardListener(nbt),
-                plugin
-        );
-
-        plugin.getServer().getPluginManager().registerEvents(
-                new HopperMoveListener(
-                        plugin,
-                        nbt,
-                        selector,
-                        importProcessor,
-                        exportProcessor,
-                        lockManager
-                ),
-                plugin
-        );
-
-        plugin.getLogger().info("[MS-Addon] HopperAddon enabled.");
     }
 
     public void disable() {
-        plugin.getLogger().info("[MS-Addon] HopperAddon disabled.");
+        if (listener != null) {
+            HandlerList.unregisterAll(listener);
+            listener = null;
+        }
+
+        plugin.getLogger().info(
+                "[MStorage] Hopper storage-item protection disabled."
+        );
     }
 }

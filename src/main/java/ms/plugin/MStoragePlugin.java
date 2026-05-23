@@ -3,6 +3,7 @@ package ms.plugin;
 import ms.addonimpl.autocollect.AutoCollectAddon;
 import ms.addonimpl.container.ContainerAddon;
 import ms.addonimpl.hopper.HopperAddon;
+import ms.addonimpl.redstonecontainer.RedstoneContainerAddon;
 import ms.api.StorageBridge;
 import ms.core.StorageLore;
 import ms.core.StorageNBT;
@@ -14,6 +15,7 @@ import ms.listener.CoreProtectionListener;
 import ms.listener.CraftListener;
 import ms.listener.StorageReleaseListener;
 import ms.manager.FeedbackManager;
+import ms.manager.StorageLoreUpdateQueue;
 import ms.service.StorageService;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,21 +25,49 @@ public class MStoragePlugin extends JavaPlugin {
     private AutoCollectAddon autoCollectAddon;
     private ContainerAddon containerAddon;
     private HopperAddon hopperAddon;
+    private RedstoneContainerAddon redstoneContainerAddon;
 
-    /*
-     * 外部プラグイン向けAPI
-     */
     private StorageBridge storageBridge;
+    private StorageLoreUpdateQueue loreUpdateQueue;
 
     @Override
     public void onEnable() {
 
-        StorageNBT nbt = new StorageNBT(this);
+        /*
+         * ------------------------------------------------------------
+         * Core
+         * ------------------------------------------------------------
+         */
 
-        StorageLore lore = new StorageLore();
+        StorageNBT nbt =
+                new StorageNBT(this);
+
+        StorageLore lore =
+                new StorageLore();
 
         StorageValidator validator =
                 new StorageValidator(nbt);
+
+        /*
+         * ------------------------------------------------------------
+         * Lore queue
+         * ------------------------------------------------------------
+         */
+
+        loreUpdateQueue =
+                new StorageLoreUpdateQueue(
+                        this,
+                        nbt,
+                        lore
+                );
+
+        loreUpdateQueue.start();
+
+        /*
+         * ------------------------------------------------------------
+         * Service
+         * ------------------------------------------------------------
+         */
 
         StorageService service =
                 new StorageService(
@@ -51,15 +81,18 @@ public class MStoragePlugin extends JavaPlugin {
 
         /*
          * ------------------------------------------------------------
-         * Storage API Bridge
+         * Storage API
          * ------------------------------------------------------------
          */
 
-        storageBridge = new StorageBridge(
-                nbt,
-                lore,
-                validator
-        );
+        storageBridge =
+                new StorageBridge(
+                        this,
+                        nbt,
+                        lore,
+                        validator,
+                        loreUpdateQueue
+                );
 
         getServer()
                 .getServicesManager()
@@ -76,53 +109,65 @@ public class MStoragePlugin extends JavaPlugin {
          * ------------------------------------------------------------
          */
 
-        getServer().getPluginManager().registerEvents(
-                new CoreActionListener(
-                        nbt,
-                        service,
-                        feedback
-                ),
-                this
-        );
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new CoreActionListener(
+                                nbt,
+                                service,
+                                feedback
+                        ),
+                        this
+                );
 
-        getServer().getPluginManager().registerEvents(
-                new CoreProtectionListener(
-                        this,
-                        nbt
-                ),
-                this
-        );
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new CoreProtectionListener(
+                                this,
+                                nbt
+                        ),
+                        this
+                );
 
-        getServer().getPluginManager().registerEvents(
-                new CraftListener(
-                        nbt,
-                        lore,
-                        validator
-                ),
-                this
-        );
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new CraftListener(
+                                nbt,
+                                lore,
+                                validator
+                        ),
+                        this
+                );
 
-        getServer().getPluginManager().registerEvents(
-                new BarrelGuideLoreListener(
-                        nbt
-                ),
-                this
-        );
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new BarrelGuideLoreListener(
+                                nbt
+                        ),
+                        this
+                );
 
-        getServer().getPluginManager().registerEvents(
-                new StorageReleaseListener(
-                        nbt,
-                        feedback
-                ),
-                this
-        );
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new StorageReleaseListener(
+                                nbt,
+                                feedback
+                        ),
+                        this
+                );
 
-        getServer().getPluginManager().registerEvents(
-                new AmmoProtectionListener(
-                        nbt
-                ),
-                this
-        );
+        getServer()
+                .getPluginManager()
+                .registerEvents(
+                        new AmmoProtectionListener(
+                                nbt
+                        ),
+                        this
+                );
 
         /*
          * ------------------------------------------------------------
@@ -130,40 +175,90 @@ public class MStoragePlugin extends JavaPlugin {
          * ------------------------------------------------------------
          */
 
-        autoCollectAddon = new AutoCollectAddon(
-                this,
-                nbt,
-                lore,
-                validator,
-                feedback
-        );
+        autoCollectAddon =
+                new AutoCollectAddon(
+                        this,
+                        nbt,
+                        lore,
+                        validator,
+                        feedback
+                );
 
         autoCollectAddon.enable();
 
-        containerAddon = new ContainerAddon(
-                this,
-                nbt,
-                lore,
-                validator,
-                feedback
-        );
+        containerAddon =
+                new ContainerAddon(
+                        this,
+                        nbt,
+                        lore,
+                        validator,
+                        feedback
+                );
 
         containerAddon.enable();
 
-        hopperAddon = new HopperAddon(
-                this,
-                nbt,
-                lore,
-                validator
-        );
+        /*
+         * ------------------------------------------------------------
+         * Hopper protection only
+         * ------------------------------------------------------------
+         *
+         * 自動搬出入は廃止。
+         * MS本体移動禁止のみ維持。
+         */
+
+        hopperAddon =
+                new HopperAddon(
+                        this,
+                        nbt
+                );
 
         hopperAddon.enable();
+
+        /*
+         * ------------------------------------------------------------
+         * Redstone container logistics
+         * ------------------------------------------------------------
+         */
+
+        redstoneContainerAddon =
+                new RedstoneContainerAddon(
+                        this,
+                        storageBridge,
+                        nbt,
+                        validator
+                );
+
+        redstoneContainerAddon.enable();
 
         getLogger().info("MStorage enabled.");
     }
 
     @Override
     public void onDisable() {
+
+        /*
+         * ------------------------------------------------------------
+         * Redstone container addon
+         * ------------------------------------------------------------
+         */
+
+        if (redstoneContainerAddon != null) {
+
+            redstoneContainerAddon.disable();
+            redstoneContainerAddon = null;
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * Lore queue stop
+         * ------------------------------------------------------------
+         */
+
+        if (loreUpdateQueue != null) {
+
+            loreUpdateQueue.stop();
+            loreUpdateQueue = null;
+        }
 
         /*
          * ------------------------------------------------------------
@@ -210,13 +305,11 @@ public class MStoragePlugin extends JavaPlugin {
         getLogger().info("MStorage disabled.");
     }
 
-    /*
-     * ------------------------------------------------------------
-     * API getter
-     * ------------------------------------------------------------
-     */
-
     public StorageBridge getStorageBridge() {
         return storageBridge;
+    }
+
+    public StorageLoreUpdateQueue getLoreUpdateQueue() {
+        return loreUpdateQueue;
     }
 }

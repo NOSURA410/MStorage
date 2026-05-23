@@ -1,131 +1,329 @@
-# MStorage
+# MStorage (MS)
 
-Advanced material compression storage plugin for Paper / Purpur servers.
+Minecraft Paper / Purpur 向け
+大規模サーバー対応型ストレージ圧縮プラグイン
 
----
+## 対応バージョン
 
-# Supported Versions
-
-* Paper 1.21.11
-* Purpur 1.21.11
-* Paper 1.26.12
-* Purpur 1.26.12
-
----
-
-# Requirements
-
+* Minecraft 1.21.11+
+* Paper
+* Purpur
 * Java 21+
-* Paper or Purpur server
 
 ---
 
-# Features
+# 概要
 
-* Single material compression storage
-* Exact ItemStack matching
-* Auto collect system
-* HAND mode
-* CONTAINER mode
-* Grindstone de-storage
-* PDC-based safe storage system
-* Rollback-safe transaction handling
-* TPS protection system
-* Storage item protection
-* Container bulk storage support
-* Real-time lore and display updates
+MStorage (MS) は、
 
----
+```text
+大量アイテムを1スロットへ圧縮保存
+```
 
-# Storage Rules
+できる高性能ストレージプラグインです。
 
-* Only one exact item type can be stored per storage item
-* Storage items cannot store other storage items
-* Exact matching uses:
+特徴：
 
-  * Material
-  * ItemMeta
-  * PDC
-* Damage value is ignored
+* Vanillaライク
+* 大規模サーバー向けTPS対策
+* PDCベース永続化
+* Lore同期
+* ホッパー負荷軽減
+* レッドストーン物流ネットワーク
+* AutoCollect
+* Container mode
+* 完全非コマンド運用
 
 ---
 
-# Auto Collect
+# 主な機能
 
-* Automatically collects nearby matching items
-* Collection radius: 4 blocks
-* Toggle ON/OFF supported
-* TPS-safe throttled processing
-* Storage items are excluded
+## ストレージ化
 
----
+```text
+チェスト8個 + 中央アイテム
+```
 
-# Modes
+で作成。
 
-## HAND Mode
+保存対象：
 
-Interact directly while holding the storage item.
+* ブロック
+* 素材
+* 一般アイテム
 
-## CONTAINER Mode
+保存禁止：
 
-Store matching items into containers automatically.
-
----
-
-# De-Storage
-
-Use a grindstone to safely remove storage status and restore the original item.
+* 耐久値付きアイテム
+* 他MS
+* 一部特殊アイテム
 
 ---
 
-# Commands
+# 保存容量
 
-| Command          | Description          |
-| ---------------- | -------------------- |
-| /mstorage reload | Reload configuration |
+最大：
 
----
+```text
+100,000,000 LC
+```
 
-# Permissions
-
-| Permission      | Description                 | Default |
-| --------------- | --------------------------- | ------- |
-| mstorage.admin  | Administrative access       | OP      |
-| mstorage.reload | Reload plugin configuration | OP      |
+対応。
 
 ---
 
-# Safety Features
+# 表示
 
-* Overflow rollback protection
-* Invalid item validation
-* Container safety checks
-* Inventory conflict prevention
-* Item duplication prevention
-* Auto collect safety filtering
-* Owner pickup protection
-* TPS-aware throttling
+## アイテム名
+
+```text
+MS: ダイヤモンド
+```
+
+## Lore
+
+例：
+
+```text
+総数: 123456
+LC: 35.7
+Stacks: 1929
+端数: 0
+```
 
 ---
 
-# Notes
+# AutoCollect
 
-* Designed for Paper/Purpur servers only
-* Unsupported inventory modification plugins may cause conflicts
-* Always test on a backup server before production use
+周囲アイテムを自動収納。
+
+## 特徴
+
+* Tick分散
+* TPS監視
+* Queue処理
+* Storage除外
+* 範囲限定
 
 ---
 
-# Development Environment
+# Container Mode
 
-* Java 21
-* Maven
+チェスト/樽と連携。
+
+## 機能
+
+* コンテナへ収納
+* コンテナから搬出
+* ストレージ優先
+* Inventory保護
+
+---
+
+# レッドストーン物流ネットワーク
+
+最新版で追加。
+
+## 特徴
+
+```text
+レッドストーン信号
+↓
+接続コンテナ探索
+↓
+対応MSへ自動搬送
+```
+
+---
+
+# 対応信号
+
+* ボタン
+* レバー
+* レッドストーンブロック
+* 間接信号
+* 直接信号
+
+---
+
+# ネットワーク仕様
+
+## 最大連結数
+
+```text
+41LC
+```
+
+まで。
+
+## 探索方式
+
+```text
+全方向BFS探索
+```
+
+* 上下左右前後
+* ラージチェスト対応
+* 樽対応
+
+---
+
+# 搬送仕様
+
+## 通常アイテム
+
+```text
+通常アイテム
+↓
+対応MSへ収納
+```
+
+## MS → MS
+
+```text
+搬出元MSの半数のみ搬送
+```
+
+---
+
+# TPS対策
+
+## 大規模サーバー向け最適化
+
+* Queueベース処理
+* Cooldown
+* Lock管理
+* Lore更新Queue
+* InventoryKey管理
+* 同一Inventory多重実行防止
+* 変更されたMSのみLore更新
+* 信号時のみ動作
+* 高速クロック対策
+* 搬送元1LC制限
+* 探索上限41LC
+
+---
+
+# 搬送演出
+
+搬送成功時：
+
+```text
+配送先チェスト/樽が一瞬開閉
+```
+
+---
+
+# 安全対策
+
+## 増殖対策
+
+* 自己搬送禁止
+* 同一Inventory除外
+* 同一物理チェスト除外
+* PDC同期
+* rollback対応
+
+## 操作ロック
+
+搬送中：
+
+* GUI操作禁止
+* ホッパー搬入禁止
+* ホッパー搬出禁止
+
+---
+
+# データ管理
+
+## 永続化
+
+PersistentDataContainer (PDC)
+
+## 保存内容
+
+* 保存アイテム
+* 保存数
+* Auto状態
+* モード
+* Version
+* Owner
+
+---
+
+# パフォーマンス設計
+
+MStorage は：
+
+```text
+大量ホッパー常時稼働
+```
+
+を前提としない設計です。
+
+代わりに：
+
+```text
+信号時のみ処理
+```
+
+でTPS負荷を大幅削減しています。
+
+---
+
+# 推奨用途
+
+* 経済サーバー
+* 長期運営サーバー
+* 大規模生活サーバー
+* 資材サーバー
+* 工業系サーバー
+
+---
+
+# 非推奨
+
+以下環境では追加調整推奨：
+
+* 超高速レッドストーンクロック
+* 数百人同時接続
+* 超巨大物流網
+
+---
+
+# 今後予定
+
+* Config強化
+* GUI設定
+* ログ機能
+* 統計機能
+* 管理者監視
+* 搬送フィルタ
+* 優先度制御
+
+---
+
+# ライセンス
+
+Private / All Rights Reserved
+
+---
+
+# 開発環境
+
 * IntelliJ IDEA
+* Maven
+* Java 21
 * Paper API
+* Purpur API
 
 ---
 
-# License
+# GitHub
 
-Private development repository.
-All rights reserved.
+```text
+Source code included
+README included
+Supported versions documented
+Permissions documented
+```
